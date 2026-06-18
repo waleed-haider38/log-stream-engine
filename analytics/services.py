@@ -1,44 +1,49 @@
+import bisect
+import logging
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
-import logging
 
-# Standard logger setup taake terminal par alerts dikha sakein
+# Standard logger setup to display operational alerts in the terminal
 logger = logging.getLogger(__name__)
 
 class LogSlidingWindowTracker:
+    """
+    Tracks and identifies potential real-time network threats (e.g., Brute-Force/DDoS attacks)
+    using an in-memory sliding window queue pattern over streaming event data.
+    """
     def __init__(self, window_seconds=60, threshold=100):
-        # Har IP ke liye alag deque (queue) maintain karne ke liye defaultdict
+        # Keeps an independent tracking double-ended queue (deque) for each individual IP address
         self.ip_tracker = defaultdict(deque)
         self.window_seconds = window_seconds
         self.threshold = threshold
 
     def process_log(self, ip_address, timestamp):
         """
-        Real-time log string handling logic:
-        1. Insert current timestamp
-        2. Shrink window by popping older timestamps
-        3. Check count against threshold
+        Main routing gateway for real-time validation:
+        1. Insert current streaming timestamp to head of array.
+        2. Shrink window boundaries (Slide) by removing expired historic records.
+        3. Evaluate threat matrix status based on traffic frequency metrics.
         """
-        # Ensure data type is a proper python datetime object
+        # Ensure incoming payload data is normalized into a native Python datetime object
         if isinstance(timestamp, str):
-            # Agar format ISO string ho toh parse karein
             timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
             
         current_queue = self.ip_tracker[ip_address]
         
-        # --- Step 1: INSERT ---
+        # --- STEP 1: INSERT ---
+        # Append the fresh incoming occurrence timestamp onto the right side of the queue
         current_queue.append(timestamp)
         
-        # --- Step 2: SHRINK (Sliding Action) ---
-        # Boundary line calculate karein: Current time minus 60 seconds
+        # --- STEP 2: SHRINK (The Sliding Window Action) ---
+        # Dynamically establish the sliding historic cutoff limit line
         boundary_time = timestamp - timedelta(seconds=self.window_seconds)
         
-        # Jab tak queue ka left-most element boundary se purana hai, pop karte rahein
+        # Evict all stale elements sitting on the left side that drop below the boundary
         while current_queue and current_queue[0] < boundary_time:
             current_queue.popleft()
             
-        # --- Step 3: COUNT & ALERT ---
-        # Safai ke baad pichle 60 seconds ke hits ka count check karein
+        # --- STEP 3: COUNT & EVALUATE THREATS ---
+        # Count remaining valid logs currently inside the active window range
         recent_hits_count = len(current_queue)
         
         if recent_hits_count > self.threshold:
@@ -46,10 +51,44 @@ class LogSlidingWindowTracker:
                 f"🚨 [SECURITY ALERT] Brute force attack detected from IP: {ip_address}! "
                 f"Total hits in last {self.window_seconds}s: {recent_hits_count}"
             )
-            return True # Attack detected
+            return True  # Attack vectors detected
             
-        return False # System safe
+        return False  # Target stream behaves within standard metrics
 
-# Singleton instance taake poore project mein aik hi memory tracker share ho
-log_tracker_service = LogSlidingWindowTracker(window_seconds=60, threshold=5) 
-# Note: Asani se test karne ke liye mainne abhi threshold 5 rakh diya hai.
+
+class LogSearchService:
+    """
+    Executes lightning-fast time-range analysis over ordered historical log data.
+    Leverages high-performance Binary Search algorithms to achieve O(log n) efficiency.
+    """
+    def find_logs_in_range(self, all_timestamps, start_time, end_time):
+        """
+        Parameters:
+            all_timestamps (list): Chronologically sorted list of datetime objects.
+            start_time (datetime): Lower boundary condition filter.
+            end_time (datetime): Upper boundary condition filter.
+        
+        Returns:
+            list: Sub-slice array containing elements safely matching the specified boundaries.
+        """
+        # Defensive check: Instantly exit if the target search array space is empty
+        if not all_timestamps:
+            return []
+
+        # Find the lower search pointer boundary using bisect_left.
+        # This gives the first index where elements are >= start_time.
+        start_index = bisect.bisect_left(all_timestamps, start_time)
+        
+        # Find the upper search pointer boundary using bisect_right.
+        # This identifies the rightmost safe edge offset point past elements <= end_time.
+        end_index = bisect.bisect_right(all_timestamps, end_time)
+        
+        # Extract and isolate the matching target subarray segment via a memory-slice operation
+        matching_logs = all_timestamps[start_index:end_index]
+        
+        return matching_logs
+
+
+# Instantiate singletons to maintain a uniform central state across application instances
+log_tracker_service = LogSlidingWindowTracker(window_seconds=60, threshold=5)
+log_search_service = LogSearchService()
