@@ -48,11 +48,11 @@ pip install django djangorestframework requests
 
 python manage.py migrate
 
-##Run the simulation
+## Run the simulation
 
 python simulate_stream.py
 
-##Run the SERVER
+## Run the SERVER
 
 python manage.py runserver
 
