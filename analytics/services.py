@@ -87,8 +87,34 @@ class LogSearchService:
         matching_logs = all_timestamps[start_index:end_index]
         
         return matching_logs
+def extract_error_core(self, raw_message: str) -> str:
+        """
+        Uses a Two-Pointer approach to parse raw logs and extract 
+        the core error message wrapped inside brackets [...].
+        """
+        # Defensive check: Agar string empty hai toh empty string return karein
+        if not raw_message:
+            return ""
 
+        # 1. Setup pointers: left ko 0 par aur right ko string ke last index par rakhein
+        left = 0
+        right = len(raw_message) - 1
 
+        # 2. Left pointer ko aage barhayein jab tak left < right ho aur '[' na mil jaye
+        while left < right and raw_message[left] != '[':
+            left += 1
+
+        # 3. Right pointer ko peeche layein jab tak right > left ho aur ']' na mil jaye
+        while right > left and raw_message[right] != ']':
+            right -= 1
+
+        # 4. Check karein agar brackets validly mil gaye hain (left < right)
+        if left < right:
+            # Slicing ke liye : use karein aur yahin se return kar dein
+            return raw_message[left + 1 : right]
+
+        # 5. Fallback Guard: Agar brackets nahi mile, toh original raw_message return kar dein
+        return raw_message
 # Instantiate singletons to maintain a uniform central state across application instances
 log_tracker_service = LogSlidingWindowTracker(window_seconds=60, threshold=5)
 log_search_service = LogSearchService()
