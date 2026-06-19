@@ -23,7 +23,7 @@ def ingest_logs(request):
         
         # 1. ORM Optimization Layer: Initialize model object instance in-memory 
         # without committing a write transaction to the physical database disk.
-        log_instance = serializer.save(commit=False)
+        log_instance = serializer.save()
         
         # 2. Algorithmic Parsing Layer (Two-Pointer Engine):
         # Scan high-severity system alerts to extract explicit trace cores.
